@@ -229,7 +229,7 @@ class PrivateRecipeAPITests(TestCase):
 
     def test_create_recipe_with_existing_tags(self):
         """Test creating a recipe with existing tag."""
-        tag_indian =  Tag.objects.create(user=self.user, name='Indian')
+        tag_indian = Tag.objects.create(user=self.user, name='Indian')
         payload = {
             'title': 'Biryani',
             'time_minutes': 60,
@@ -250,3 +250,43 @@ class PrivateRecipeAPITests(TestCase):
                 user=self.user,
             ).exists
             self.assertTrue(exists)
+
+    def test_create_tag_on_update(self):
+        """Test creating tag when updating a recipe."""
+        recipe = create_recipe(user=self.user)
+
+        payload = {'tags': [{'name': 'Launch'}]}
+        url = detail_url(recipe.id)
+        res = self.client.patch(url, payload, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        new_tag = Tag.objects.get(user=self.user, name='Launch')
+        self.assertIn(new_tag, recipe.tags.all())
+
+    def test_update_recipe_assign_tag(self):
+        """Test assigning an existing tag when updaging a recipe."""
+        tag_breakfast = Tag.objects.create(user=self.user, name='Breakfast')
+        recipe = create_recipe(user=self.user)
+        recipe.tags.add(tag_breakfast)
+
+        tag_launch = Tag.objects.create(user=self.user, name='Launch')
+        payload = {'tags': [{'name': 'Launch'}]}
+        url = detail_url(recipe.id)
+        res = self.client.patch(url, payload, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(tag_launch, recipe.tags.all())
+        self.assertNotIn(tag_breakfast, recipe.tags.all())
+
+    def test_clear_recipe_tags(self):
+        """Test clearing a recipes tags."""
+        tag = Tag.objects.create(user=self.user, name='Dessert')
+        recipe = create_recipe(user=self.user)
+        recipe.tags.add(tag)
+
+        payload = {'tags': []}
+        url = detail_url(recipe.id)
+        res = self.client.patch(url, payload, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(recipe.tags.count(), 0)
